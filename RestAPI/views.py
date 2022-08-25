@@ -1,5 +1,5 @@
 from django.views import View
-from django.http import HttpResponse, HttpRequest
+from django.http import HttpResponse, HttpRequest,JsonResponse
 import subprocess
 
 
@@ -72,7 +72,7 @@ class OrganizationCreate(View):
             cmd.append(request.POST.get(key='alternate_Id'))
 
         output = runCmd(cmd)
-        return HttpResponse({"Data":output})
+        return JsonResponse({"Data":output})
 
 
 class OrganizationList(View):
@@ -80,7 +80,7 @@ class OrganizationList(View):
         cmd = [GridCommands.grid, GridCommands.organization, 'list']
 
         output = runCmd(cmd)
-        return HttpResponse({"Data":output})
+        return JsonResponse({"Data":output})
 
 
 class OrganizationUpdate(View):
@@ -98,7 +98,7 @@ class OrganizationUpdate(View):
             cmd.extend(["--" + GridOptionalFields.location, request.POST.get(key=GridOptionalFields.location)])
 
         output = runCmd(cmd=cmd)
-        return HttpResponse({"Data":output})
+        return JsonResponse({"Data":output})
 
 
 class OrganizationShow(View):
@@ -111,6 +111,6 @@ class OrganizationShow(View):
 
         if csv == "True":
             cmd.extend(["-F csv"])
-            return HttpResponse(csvToJson(runCmd(cmd)))
+            return JsonResponse(csvToJson(runCmd(cmd)))
 
 
