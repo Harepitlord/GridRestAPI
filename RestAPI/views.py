@@ -62,55 +62,56 @@ class Sample(View):
         return HttpResponse("HELLO")
 
 
-class OrganizationCreate(View):
-    def post(self, request: HttpRequest):
-        org_Id = request.POST.get(key="Org_Id")
-        org_Name = request.POST.get(key="Org_Name")
-        cmd = [GridCommands.grid, GridCommands.organization]
-        cmd.extend(['create', org_Id, org_Name])
-        if request.POST.__contains__('alternate_Id'):
-            cmd.append(request.POST.get(key='alternate_Id'))
+class Organization:
+    class OrganizationCreate(View):
+        def post(self, request: HttpRequest):
+            org_Id = request.POST.get(key="Org_Id")
+            org_Name = request.POST.get(key="Org_Name")
+            cmd = [GridCommands.grid, GridCommands.organization]
+            cmd.extend(['create', org_Id, org_Name])
+            if request.POST.__contains__('alternate_Id'):
+                cmd.append(request.POST.get(key='alternate_Id'))
 
-        output = runCmd(cmd)
-        return JsonResponse({"Data":output})
-
-
-class OrganizationList(View):
-    def get(self, request: HttpRequest):
-        cmd = [GridCommands.grid, GridCommands.organization, 'list']
-
-        output = runCmd(cmd)
-        return JsonResponse({"Data":output})
+            output = runCmd(cmd)
+            return JsonResponse({"Data":output})
 
 
-class OrganizationUpdate(View):
-    def post(self, request: HttpRequest):
-        org_Id = request.POST.get(key=GridRequiredFields.org_Id)
-        org_Name = request.POST.get(key=GridRequiredFields.org_Name)
+    class OrganizationList(View):
+        def get(self, request: HttpRequest):
+            cmd = [GridCommands.grid, GridCommands.organization, 'list']
 
-        cmd = [GridCommands.grid, GridCommands.organization]
-        cmd.extend(['update', org_Id, org_Name])
-
-        if request.POST.__contains__(GridOptionalFields.alternate_Id):
-            cmd.extend(["--" + GridOptionalFields.alternate_Id, request.POST.get(key=GridOptionalFields.alternate_Id)])
-
-        if request.POST.__contains__(GridOptionalFields.location):
-            cmd.extend(["--" + GridOptionalFields.location, request.POST.get(key=GridOptionalFields.location)])
-
-        output = runCmd(cmd=cmd)
-        return JsonResponse({"Data":output})
+            output = runCmd(cmd)
+            return JsonResponse({"Data":output})
 
 
-class OrganizationShow(View):
-    def post(self, request: HttpRequest):
-        org_Id = request.POST.get(key=GridRequiredFields.org_Id)
-        csv = request.POST.get(key="csv")
+    class OrganizationUpdate(View):
+        def post(self, request: HttpRequest):
+            org_Id = request.POST.get(key=GridRequiredFields.org_Id)
+            org_Name = request.POST.get(key=GridRequiredFields.org_Name)
 
-        cmd = [GridCommands.grid, GridCommands.organization]
-        cmd.extend(['list'])
+            cmd = [GridCommands.grid, GridCommands.organization]
+            cmd.extend(['update', org_Id, org_Name])
 
-        if csv == "True":
-            cmd.extend(["-F csv"])
-            return JsonResponse(csvToJson(runCmd(cmd)))
+            if request.POST.__contains__(GridOptionalFields.alternate_Id):
+                cmd.extend(["--" + GridOptionalFields.alternate_Id, request.POST.get(key=GridOptionalFields.alternate_Id)])
+
+            if request.POST.__contains__(GridOptionalFields.location):
+                cmd.extend(["--" + GridOptionalFields.location, request.POST.get(key=GridOptionalFields.location)])
+
+            output = runCmd(cmd=cmd)
+            return JsonResponse({"Data":output})
+
+
+    class OrganizationShow(View):
+        def post(self, request: HttpRequest):
+            org_Id = request.POST.get(key=GridRequiredFields.org_Id)
+            csv = request.POST.get(key="csv")
+
+            cmd = [GridCommands.grid, GridCommands.organization]
+            cmd.extend(['list'])
+
+            if csv == "True":
+                cmd.extend(["-F csv"])
+                return JsonResponse(csvToJson(runCmd(cmd)))
 
 
