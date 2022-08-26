@@ -15,6 +15,11 @@ urlpatterns = [
     path('grid/role/list',views.Role.ListRole.as_view()),
     path('grid/role/show',views.Role.ShowRole.as_view()),
 
+    path('grid/agent/create',views.Agent.CreateAgent.as_view()),
+    path('grid/agent/update',views.Agent.UpdateAgent.as_view()),
+    path('grid/agent/list',views.Agent.ListAgent.as_view()),
+    path('grid/agent/show',views.Agent.ShowAgent.as_view()),
+
 
 
 ]
