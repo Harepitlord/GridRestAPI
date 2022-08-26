@@ -1,6 +1,7 @@
 from django.views import View
 from django.http import HttpResponse, HttpRequest, JsonResponse
 import subprocess
+import optparse
 
 
 def csvToJson(data: str):
@@ -63,7 +64,7 @@ class GridFlags:
 
 def runCmd(cmd: list):
     try:
-        output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        output = subprocess.run("".join(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         stdoutOutput = output.stdout.decode('UTF-8')
         stderrOutput = output.stderr.decode('UTF-8')
 
@@ -132,6 +133,11 @@ class Organization:
 
                 if request.POST.__contains__('alternate_Id'):
                     cmd.append(request.POST.get(key='alternate_Id'))
+                if request.POST.__contains__("metadata"):
+                    cmd.append("--metadata")
+                    for r in request.POST.getlist("metadata"):
+                        cmd.append(r+",")
+
                 output = runCmd(cmd)
 
             return JsonResponse({"Data": output})
