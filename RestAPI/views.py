@@ -1,5 +1,5 @@
 from django.views import View
-from django.http import HttpResponse, HttpRequest,JsonResponse
+from django.http import HttpResponse, HttpRequest, JsonResponse
 import subprocess
 
 
@@ -23,37 +23,82 @@ def csvToJson(data: str):
 class GridCommands:
     grid = "grid"
     organization = "organization"
+    role = "role"
 
 
 class GridRequiredFields:
     org_Id = "Org_Id"
     org_Name = "Org_Name"
+    role_Name = "role_Name"
 
 
 class GridOptionalFields:
     alternate_Id = "alternate-ids"
     location = "location"
+    description = "description"
+    active = "active"
+    permissions = "permissions"
+    key = "key"
+    allowed_Org = "allowed-orgs"
+    inherit_From = "inherit-from"
+
+
+class GridFlags:
+    verbose = "verbose"
+    quiet = "quiet"
+    help = "help"
+    version = "version"
 
 
 def runCmd(cmd: list):
-    output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-    formattedOutput = None
-    stdoutOutput = output.stdout.decode('UTF-8')
-    stderrOutput = output.stderr.decode('UTF-8')
+    try:
+        output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        stdoutOutput = output.stdout.decode('UTF-8')
+        stderrOutput = output.stderr.decode('UTF-8')
 
-    serr = len(stderrOutput) == 0
-    sout = len(stdoutOutput) == 0
+        serr = len(stderrOutput) == 0
+        sout = len(stdoutOutput) == 0
 
-    if not sout and serr:
-        return stdoutOutput
+        if not sout and serr:
+            return stdoutOutput
 
-    if sout and not serr:
-        return stderrOutput
+        if sout and not serr:
+            return stderrOutput
 
-    if sout and serr:
-        return stdoutOutput + stderrOutput
+        if sout and serr:
+            return stdoutOutput + stderrOutput
+
+        if not sout and not  serr:
+            return "Done"
+
+    except subprocess.CalledProcessError:
+        return "Process Failed"
 
     return "Internal Command Server"
+
+
+def addFlags(request: HttpRequest, cmd: list):
+    if request.POST.__contains__(GridFlags.verbose):
+        cmd.append('-v')
+
+    if request.POST.__contains__(GridFlags.quiet):
+        cmd.append('-q')
+
+    return cmd
+
+
+def addEndFlags(request: HttpRequest, cmd: list):
+    endFlags = False
+    if request.POST.__contains__(GridFlags.help):
+        cmd.append("-h")
+        endFlags = True
+    if request.POST.__contains__(GridFlags.version):
+        cmd.append("-v")
+        endFlags = True
+
+    if endFlags:
+        return runCmd(cmd)
+    return None
 
 
 # Create your views here.
@@ -63,55 +108,190 @@ class Sample(View):
 
 
 class Organization:
-    class OrganizationCreate(View):
+    class CreateOrganization(View):
         def post(self, request: HttpRequest):
             org_Id = request.POST.get(key="Org_Id")
             org_Name = request.POST.get(key="Org_Name")
-            cmd = [GridCommands.grid, GridCommands.organization]
-            cmd.extend(['create', org_Id, org_Name])
-            if request.POST.__contains__('alternate_Id'):
-                cmd.append(request.POST.get(key='alternate_Id'))
+            cmd = [GridCommands.grid, GridCommands.organization, 'create']
+            output = addEndFlags(request, cmd)
+            if output is None:
+                cmd.extend([org_Id, org_Name])
 
-            output = runCmd(cmd)
-            return JsonResponse({"Data":output})
+                addFlags(request,cmd)
 
+                if request.POST.__contains__('alternate_Id'):
+                    cmd.append(request.POST.get(key='alternate_Id'))
+                output = runCmd(cmd)
 
-    class OrganizationList(View):
+            return JsonResponse({"Data": output})
+
+    class ListOrganization(View):
         def get(self, request: HttpRequest):
             cmd = [GridCommands.grid, GridCommands.organization, 'list']
+            csv = request.POST.get(key="csv")
 
-            output = runCmd(cmd)
-            return JsonResponse({"Data":output})
+            output = addEndFlags(request, cmd)
+            if output is None:
+                addFlags(request,cmd)
+                if csv == "True":
+                    cmd.extend(["-F csv"])
+                    return JsonResponse(csvToJson(runCmd(cmd)))
+                output = runCmd(cmd)
+            return JsonResponse({"Data": output})
 
-
-    class OrganizationUpdate(View):
+    class UpdateOrganization(View):
         def post(self, request: HttpRequest):
             org_Id = request.POST.get(key=GridRequiredFields.org_Id)
             org_Name = request.POST.get(key=GridRequiredFields.org_Name)
 
-            cmd = [GridCommands.grid, GridCommands.organization]
-            cmd.extend(['update', org_Id, org_Name])
+            cmd = [GridCommands.grid, GridCommands.organization, 'update']
+            output = addEndFlags(request, cmd)
+            if output is None:
+                cmd.extend([org_Id, org_Name])
 
-            if request.POST.__contains__(GridOptionalFields.alternate_Id):
-                cmd.extend(["--" + GridOptionalFields.alternate_Id, request.POST.get(key=GridOptionalFields.alternate_Id)])
+                addFlags(request,cmd)
 
-            if request.POST.__contains__(GridOptionalFields.location):
-                cmd.extend(["--" + GridOptionalFields.location, request.POST.get(key=GridOptionalFields.location)])
+                if request.POST.__contains__(GridOptionalFields.alternate_Id):
+                    cmd.extend(
+                        ["--" + GridOptionalFields.alternate_Id, request.POST.get(key=GridOptionalFields.alternate_Id)])
 
-            output = runCmd(cmd=cmd)
-            return JsonResponse({"Data":output})
+                if request.POST.__contains__(GridOptionalFields.location):
+                    cmd.extend(["--" + GridOptionalFields.location, request.POST.get(key=GridOptionalFields.location)])
 
+                output = runCmd(cmd=cmd)
+            return JsonResponse({"Data": output})
 
-    class OrganizationShow(View):
+    class ShowOrganization(View):
         def post(self, request: HttpRequest):
             org_Id = request.POST.get(key=GridRequiredFields.org_Id)
-            csv = request.POST.get(key="csv")
 
-            cmd = [GridCommands.grid, GridCommands.organization]
-            cmd.extend(['list'])
+            cmd = [GridCommands.grid, GridCommands.organization, 'show']
 
-            if csv == "True":
-                cmd.extend(["-F csv"])
-                return JsonResponse(csvToJson(runCmd(cmd)))
+            output = addEndFlags(request,cmd)
+            if output is None:
+                cmd.append(request.POST.get(key=GridRequiredFields.org_Id))
 
+                addFlags(request,cmd)
+
+                output = runCmd(cmd)
+
+            return JsonResponse({'data':output})
+
+
+class Role:
+
+    def addOptionalFlags(self,request,cmd):
+        if request.POST.__contains__(GridOptionalFields.description):
+            cmd.extend(
+                ['--' + GridOptionalFields.description, request.POST.get(key=GridOptionalFields.description)])
+
+        if request.POST.__contains__(GridOptionalFields.permissions):
+            cmd.extend(['--' + GridOptionalFields.permissions,
+                        f"\"{request.POST.get(key=GridOptionalFields.permissions)}\""])
+
+        if request.POST.__contains__(GridOptionalFields.key):
+            cmd.extend(['--' + GridOptionalFields.key, request.POST.get(key=GridOptionalFields.key)])
+
+        if request.POST.__contains__(GridOptionalFields.active):
+            if request.POST.get(key=GridOptionalFields.active) == 1:
+                cmd.append('--active')
+            else:
+                cmd.append('--inactive')
+
+        if request.POST.__contains__(GridOptionalFields.allowed_Org):
+            cmd.append('--' + GridOptionalFields.allowed_Org)
+            cmd.extend(request.POST.get(GridOptionalFields.allowed_Org))
+
+        if request.POST.__contains__(GridOptionalFields.inherit_From):
+            cmd.append('--' + GridOptionalFields.inherit_From)
+            cmd.extend(request.POST.get(key=GridOptionalFields.inherit_From))
+
+    class CreateRole(View):
+        def post(self, request: HttpRequest):
+            org_Id = request.POST.get(key=GridRequiredFields.org_Id)
+            role_Name = request.POST.get(key=GridRequiredFields.role_Name)
+
+            cmd = [GridCommands.grid, GridCommands.role, 'create']
+
+            output = addEndFlags(request,cmd)
+            if output is None:
+                cmd.extend([org_Id,role_Name])
+
+                addFlags(request,cmd)
+
+                Role.addOptionalFlags(request,cmd)
+
+                output = runCmd(cmd)
+
+            return JsonResponse({'data':output})
+
+    class UpdateRole(View):
+        def post(self,request : HttpRequest):
+            org_Id = request.POST.get(key=GridRequiredFields.org_Id)
+            role_Name = request.POST.get(key=GridRequiredFields.role_Name)
+
+            cmd = [GridCommands.grid, GridCommands.role, 'update']
+
+            output = addEndFlags(request, cmd)
+            if output is None:
+                cmd.extend([org_Id,role_Name])
+
+                addFlags(request,cmd)
+
+                Role.addOptionalFlags(request,cmd)
+
+                output = runCmd(cmd)
+
+            return JsonResponse({'data':output})
+
+    class DeleteRole(View):
+        def post(self,request : HttpRequest):
+            org_Id = request.POST.get(key=GridRequiredFields.org_Id)
+            role_Name = request.POST.get(key=GridRequiredFields.role_Name)
+
+            cmd = [GridCommands.grid, GridCommands.role, 'delete']
+
+            output = addEndFlags(request, cmd)
+            if output is None:
+                cmd.extend([org_Id, role_Name])
+
+                addFlags(request,cmd)
+
+                Role.addOptionalFlags(request, cmd)
+
+                output = runCmd(cmd)
+
+            return JsonResponse({'data':output})
+
+    class ListRole(View):
+        def post(self,request:HttpRequest):
+            org_Id = request.POST.get(key=GridRequiredFields.org_Id)
+
+            cmd = [GridCommands.grid, GridCommands.role, 'list']
+
+            output = addEndFlags(request, cmd)
+            if output is None:
+                cmd.append(org_Id)
+
+                addFlags(request,cmd)
+
+                output = runCmd(cmd)
+
+            return JsonResponse({'data':output})
+
+    class ShowRole(View):
+        def post(self,request:HttpRequest):
+            org_Id = request.POST.get(key=GridRequiredFields.org_Id)
+
+            cmd = [GridCommands.grid, GridCommands.role, 'show']
+
+            output = addEndFlags(request, cmd)
+            if output is None:
+                cmd.append(org_Id)
+
+                addFlags(request,cmd)
+
+                output = runCmd(cmd)
+
+            return JsonResponse({'data': output})
 
